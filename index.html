@@ -107,7 +107,7 @@
 
     <div id="game-hud">
         <div class="hud-card" id="team-display">🏴‍☠️ Loading...</div>
-        <div class="hud-card" id="progress-display">Markers: 0/20</div>
+        <div class="hud-card" id="progress-display">Markers: 0/40</div>
         <div class="hud-card" id="score-display">Points: 0</div>
     </div>
 
@@ -145,8 +145,7 @@
         const teamId = localStorage.getItem('team_id');
         const teamName = localStorage.getItem('team_name');
         
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        if (!teamId || !teamName || !uuidRegex.test(teamId)) {
+        if (!teamId || !teamName) {
             kickToLogin();
         }
 
@@ -160,31 +159,27 @@
         let activeMarkerId = null;
         let currentQuestion = null;
         const container = document.getElementById('target-container');
-        const TOTAL_MARKERS = 20; 
+        const TOTAL_MARKERS = 40; 
 
         function kickToLogin() {
             localStorage.clear();
             window.location.href = 'login.html';
         }
 
-        // Listen for Realtime Admin Resets
+        // Realtime reset listener
         function listenForReset() {
             supabaseClient
                 .channel('client-reset-listener')
-                .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'teams' }, (payload) => {
-                    // If all teams were wiped or our specific team was deleted
-                    if (!payload.old || payload.old.team_id === teamId) {
-                        alert("⚠️ The admin reset the game! Redirecting to registration...");
-                        kickToLogin();
-                    }
+                .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'teams' }, () => {
+                    alert("⚠️ The game was reset by Admin! Redirecting to login...");
+                    kickToLogin();
                 })
                 .subscribe();
         }
 
-        // Verify team existence on boot
         async function initCheck() {
-            const { data, error } = await supabaseClient.from('teams').select('team_id').eq('team_id', teamId).maybeSingle();
-            if (error || !data) {
+            const { data } = await supabaseClient.from('teams').select('team_id').eq('team_id', teamId).maybeSingle();
+            if (!data) {
                 kickToLogin();
                 return;
             }
@@ -192,7 +187,7 @@
             listenForReset();
         }
 
-        // Bind target listeners for all 20 markers
+        // Attach listeners across all 40 target indices
         for (let i = 0; i < TOTAL_MARKERS; i++) {
             let entity = document.createElement('a-entity');
             entity.setAttribute('mindar-image-target', `targetIndex: ${i}`);
@@ -204,7 +199,7 @@
                 activeMarkerId = paddedId;
 
                 const { data: scanned } = await supabaseClient
-                    .from('trivia_scans')
+                    .from('scan_logs')
                     .select('id')
                     .eq('team_id', teamId)
                     .eq('marker_id', paddedId)
@@ -221,9 +216,9 @@
         }
 
         async function loadQuestionForMarker(markerId) {
-            const { data: questions, error } = await supabaseClient.from('trivia_questions').select('*').order('id', { ascending: true });
-            if (error || !questions || questions.length === 0) {
-                alert("Error loading questions from database.");
+            const { data: questions } = await supabaseClient.from('trivia_questions').select('*').order('id', { ascending: true });
+            if (!questions || questions.length === 0) {
+                alert("Error loading trivia questions.");
                 processingLock = false;
                 return;
             }
@@ -231,7 +226,7 @@
             const questionIndex = (parseInt(markerId, 10) - 1) % questions.length;
             currentQuestion = questions[questionIndex];
 
-            document.getElementById('markerBadge').innerText = `🎯 marker_${markerId}`;
+            document.getElementById('markerBadge').innerText = `🎯 Marker ${markerId}`;
             document.getElementById('questionText').innerText = currentQuestion.question;
             
             const optionsContainer = document.getElementById('optionsContainer');
@@ -267,30 +262,30 @@
             if (error) {
                 document.getElementById('resultTitle').innerText = "System Error";
                 document.getElementById('resultTitle').className = "error-text";
-                document.getElementById('resultMessage').innerText = error.message || "Failed to submit answer.";
+                document.getElementById('resultMessage').innerText = error.message;
             } else {
                 const res = Array.isArray(data) ? data[0] : data;
                 refreshHUD();
 
-                if (res && res.total_scanned >= 20) {
+                if (res && res.total_scanned >= TOTAL_MARKERS) {
                     document.getElementById('resultTitle').innerText = "🏆 QUEST COMPLETE!";
                     document.getElementById('resultTitle').className = "success-text";
-                    document.getElementById('resultMessage').innerText = "All Markers Scanned, Please go back to Base. 🏁🚩";
+                    document.getElementById('resultMessage').innerText = "All 40 Markers Scanned! Return to Base. 🏁";
                 } else {
                     document.getElementById('resultTitle').innerText = isCorrect ? "🎉 Correct!" : "💡 Nice Effort!";
                     document.getElementById('resultTitle').className = isCorrect ? "success-text" : "error-text";
-                    document.getElementById('resultMessage').innerText = res ? res.message : (isCorrect ? "+10 Points!" : "+5 Points!");
+                    document.getElementById('resultMessage').innerText = res ? res.message : "+5 Points!";
                 }
             }
         }
 
         function showAlreadyScannedModal(markerId) {
-            document.getElementById('markerBadge').innerText = `🎯 marker_${markerId}`;
+            document.getElementById('markerBadge').innerText = `🎯 Marker ${markerId}`;
             document.getElementById('quizBody').style.display = "none";
             document.getElementById('resultBody').style.display = "block";
-            document.getElementById('resultTitle').innerText = "Already Answered!";
+            document.getElementById('resultTitle').innerText = "Already Scanned!";
             document.getElementById('resultTitle').className = "error-text";
-            document.getElementById('resultMessage').innerText = "Your team has already scanned this marker.";
+            document.getElementById('resultMessage').innerText = "Your team has already answered this question.";
             document.getElementById('quizModal').style.display = "block";
         }
 
@@ -298,7 +293,7 @@
             const { data } = await supabaseClient.from('teams').select('score, scanned_count').eq('team_id', teamId).maybeSingle();
             if (data) {
                 document.getElementById('score-display').innerText = `Points: ${data.score || 0}`;
-                document.getElementById('progress-display').innerText = `Markers: ${data.scanned_count || 0}/20`;
+                document.getElementById('progress-display').innerText = `Markers: ${data.scanned_count || 0}/40`;
             }
         }
 
