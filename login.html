@@ -3,89 +3,102 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Team Login - AR Trivia Quest</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <title>AR Trivia Quest - Team Registration</title>
     <style>
         body {
-            background-color: #0f172a;
-            color: white;
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            color: #fff;
             display: flex;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
+            justify-content: center;
             height: 100vh;
             margin: 0;
         }
-        .card {
-            background: #1e293b;
+        .login-card {
+            background: #162447;
             padding: 30px;
-            border-radius: 12px;
-            width: 90%;
-            max-width: 360px;
+            border-radius: 15px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.5);
             text-align: center;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            border: 2px solid #38bdf8;
+            width: 80%;
+            max-width: 350px;
         }
+        h1 { color: #ffc107; margin-bottom: 20px; }
         input {
-            width: 100%;
+            width: 90%;
             padding: 12px;
             margin: 15px 0;
-            border-radius: 6px;
-            border: 1px solid #475569;
-            background: #0f172a;
-            color: white;
+            border: none;
+            border-radius: 8px;
             font-size: 16px;
-            box-sizing: border-box;
-            text-align: center;
         }
         button {
-            width: 100%;
-            padding: 12px;
-            border-radius: 6px;
-            border: none;
-            background: #0284c7;
+            background: #e43f5a;
             color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
             font-size: 16px;
-            font-weight: bold;
             cursor: pointer;
+            width: 100%;
+            font-weight: bold;
         }
-        button:active { background: #0369a1; }
+        button:hover { background: #b93246; }
+        .error { color: #ff4d4d; margin-top: 10px; font-size: 14px; }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
-    <div class="card">
-        <h2>🏴‍☠️ AR Trivia Quest</h2>
-        <p>Enter your team name to join</p>
-        <input type="text" id="teamNameInput" placeholder="Team Name (e.g. Black Pearls)" maxlength="20">
-        <button onclick="joinQuest()">Start Hunt</button>
+    <div class="login-card">
+        <h1>🧩 AR Trivia Quest 🧩</h1>
+        <p>Enter your Team Name to join the challenge!</p>
+        <input type="text" id="teamNameInput" placeholder="e.g. Brainiacs" required>
+        <button onclick="registerTeam()">Join Game</button>
+        <div id="errorMessage" class="error"></div>
     </div>
 
     <script>
         const SUPABASE_URL = "https://vkdilynwfkkmmmjiyxyw.supabase.co"; 
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrZGlseW53ZmtrbW1taml5eHl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MDA5NDUsImV4cCI6MjA5Nzk3Njk0NX0.AY267mdl4i6fcJuqNx1J3ANs-mNRHcydZvwD75OuAA0";
+
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        async function joinQuest() {
-            const rawName = document.getElementById('teamNameInput').value.trim();
-            if (!rawName) return alert("Please enter a valid team name.");
+        async function registerTeam() {
+            const teamName = document.getElementById('teamNameInput').value.trim();
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.innerText = "";
 
-            const teamId = rawName.toLowerCase().replace(/[^a-z0-9]/g, '-');
-
-            // Insert team if new, or fetch existing
-            const { data, error } = await supabaseClient
-                .from('teams')
-                .upsert({ team_id: teamId, team_name: rawName }, { onConflict: 'team_id' })
-                .select()
-                .single();
-
-            if (error) {
-                alert("Error joining game: " + error.message);
+            if (!teamName) {
+                errorDiv.innerText = "Please enter a valid name!";
                 return;
             }
 
-            localStorage.setItem('team_id', data.team_id);
-            localStorage.setItem('team_name', data.team_name);
+            const teamId = teamName.toLowerCase().replace(/[^a-z0-9]/g, '-');
+
+            const { data, error } = await supabaseClient
+                .from('teams')
+                .insert([{ team_id: teamId, team_name: teamName, scanned_count: 0, score: 0 }])
+                .select();
+
+            if (error) {
+                if (error.code === '23505') { 
+                    localStorage.setItem('team_id', teamId);
+                    localStorage.setItem('team_name', teamName);
+                    window.location.href = 'index.html';
+                } else {
+                    errorDiv.innerText = "Error: " + error.message;
+                }
+            } else {
+                localStorage.setItem('team_id', teamId);
+                localStorage.setItem('team_name', teamName);
+                window.location.href = 'index.html';
+            }
+        }
+
+        if (localStorage.getItem('team_id')) {
             window.location.href = 'index.html';
         }
     </script>

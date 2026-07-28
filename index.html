@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AR Trivia Quest</title>
+    <title>AR Trivia Quest - Scanner</title>
     
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
@@ -11,121 +11,82 @@
 
     <style>
         html, body {
-            margin: 0; padding: 0;
-            width: 100%; height: 100%;
-            overflow: hidden;
-            font-family: Arial, sans-serif;
-            background-color: #000;
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden; font-family: Arial, sans-serif; background-color: #000;
         }
 
         -webkit-video, video {
-            position: fixed !important;
-            top: 0 !important; left: 0 !important;
+            position: fixed !important; top: 0 !important; left: 0 !important;
             width: 100vw !important; height: 100vh !important;
             object-fit: cover !important; z-index: 0 !important;
         }
 
+        canvas, .a-canvas {
+            position: fixed !important; top: 0 !important; left: 0 !important;
+            width: 100vw !important; height: 100vh !important;
+            z-index: 1 !important; pointer-events: none !important;
+        }
+
         #game-hud {
-            position: fixed;
-            top: 10px; left: 10px; right: 10px;
-            z-index: 9999 !important;
-            pointer-events: none;
-            display: flex;
-            justify-content: space-between;
+            position: fixed; top: 10px; left: 10px; right: 10px;
+            z-index: 9999 !important; font-family: Arial, sans-serif; pointer-events: none;
         }
         .hud-card {
-            background: rgba(15, 23, 42, 0.9);
-            color: #fff;
-            padding: 8px 12px;
-            border-radius: 8px;
-            font-weight: bold;
-            font-size: 14px;
-            pointer-events: auto;
-            border: 1px solid #334155;
+            background: rgba(22, 36, 71, 0.85); color: #fff;
+            padding: 10px 15px; border-radius: 8px; display: inline-block;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3); font-weight: bold; pointer-events: auto;
         }
-        #score-display { background: rgba(225, 29, 72, 0.95); }
+        #score-display { float: right; background: rgba(228, 63, 90, 0.9); }
 
         .modal {
-            display: none;
-            position: fixed;
-            z-index: 10000;
+            display: none; position: fixed; z-index: 10000;
             left: 0; top: 0; width: 100%; height: 100%;
-            background-color: rgba(0,0,0,0.85);
+            background-color: rgba(0,0,0,0.85); font-family: Arial, sans-serif;
         }
         .modal-content {
-            background-color: #1e293b;
-            color: white;
-            margin: 10% auto;
-            padding: 20px;
-            border-radius: 12px;
-            width: 85%;
-            max-width: 400px;
-            text-align: center;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
-            border: 2px solid #38bdf8;
+            background-color: #162447; color: white; margin: 15% auto;
+            padding: 20px; border-radius: 12px; width: 85%; max-width: 400px;
+            text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            border: 2px solid #ffc107;
         }
-
-        .question-text {
-            font-size: 1.1rem;
-            margin: 15px 0;
-            color: #f8fafc;
-            line-height: 1.4;
-        }
-
         .option-btn {
-            background: #334155;
-            color: white;
-            border: 2px solid #38bdf8;
-            padding: 12px;
-            border-radius: 8px;
-            font-size: 15px;
-            font-weight: bold;
-            cursor: pointer;
-            margin: 8px 0;
-            width: 100%;
-            box-sizing: border-box;
+            background: #1f4068; color: white; border: 1px solid #00d2fc;
+            padding: 12px; border-radius: 6px; font-size: 15px; margin: 8px 0;
+            cursor: pointer; width: 100%; text-align: left; transition: 0.2s;
+            pointer-events: auto;
         }
-        .option-btn:active { background: #0284c7; }
-
-        .modal-close-btn {
-            background: #e11d48;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 6px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            margin-top: 15px;
-            width: 100%;
+        .option-btn:active { background: #00d2fc; color: #000; }
+        .modal-btn {
+            background: #e43f5a; color: white; border: none; padding: 12px 24px;
+            border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer;
+            margin-top: 15px; pointer-events: auto; width: 100%;
         }
-        .error-text { color: #f87171; }
-        .success-text { color: #4ade80; }
+        .error-text { color: #ff4d4d; }
+        .success-text { color: #4dff88; }
     </style>
 </head>
 <body>
 
     <div id="game-hud">
-        <div class="hud-card" id="team-display">🏴‍☠️ Loading...</div>
-        <div class="hud-card" id="progress-display">Markers: 0/40</div>
+        <div class="hud-card" id="team-display">Team: Loading...</div>
         <div class="hud-card" id="score-display">Points: 0</div>
     </div>
 
-    <!-- Quiz & Notification Modal -->
-    <div id="quizModal" class="modal">
+    <!-- Trivia Interaction Modal -->
+    <div id="triviaModal" class="modal">
         <div class="modal-content">
-            <h3 id="markerBadge" style="color: #38bdf8; margin:0;">Marker Scanned!</h3>
-            
-            <div id="quizBody">
-                <p id="questionText" class="question-text">Loading question...</p>
-                <div id="optionsContainer"></div>
-            </div>
+            <h3 id="questionTitle" style="color:#ffc107; margin-top:0;">Question</h3>
+            <p id="questionText" style="font-size: 16px; line-height: 1.4;"></p>
+            <div id="optionsContainer"></div>
+        </div>
+    </div>
 
-            <div id="resultBody" style="display: none;">
-                <h2 id="resultTitle"></h2>
-                <p id="resultMessage" style="font-size: 1.1rem; margin: 15px 0;"></p>
-                <button class="modal-close-btn" onclick="closeModal()">Continue Quest</button>
-            </div>
+    <!-- Result Alert Modal -->
+    <div id="resultModal" class="modal">
+        <div class="modal-content">
+            <h2 id="modalTitle">Scan Status</h2>
+            <p id="modalMessage">Processing result...</p>
+            <button class="modal-btn" onclick="closeModal()">Continue Game</button>
         </div>
     </div>
 
@@ -146,48 +107,55 @@
         const teamName = localStorage.getItem('team_name');
         
         if (!teamId || !teamName) {
-            kickToLogin();
+            window.location.href = 'login.html';
         }
 
         const SUPABASE_URL = "https://vkdilynwfkkmmmjiyxyw.supabase.co"; 
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrZGlseW53ZmtrbW1taml5eHl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MDA5NDUsImV4cCI6MjA5Nzk3Njk0NX0.AY267mdl4i6fcJuqNx1J3ANs-mNRHcydZvwD75OuAA0";
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        document.getElementById('team-display').innerText = `🏴‍☠️ ${teamName}`;
-        
-        let processingLock = false;
-        let activeMarkerId = null;
-        let currentQuestion = null;
-        const container = document.getElementById('target-container');
-        const TOTAL_MARKERS = 40; 
+        document.getElementById('team-display').innerText = `Team: ${teamName}`;
+        refreshScore();
 
-        function kickToLogin() {
-            localStorage.clear();
-            window.location.href = 'login.html';
-        }
-
-        // Realtime reset listener
-        function listenForReset() {
-            supabaseClient
-                .channel('client-reset-listener')
-                .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'teams' }, () => {
-                    alert("⚠️ The game was reset by Admin! Redirecting to login...");
-                    kickToLogin();
-                })
-                .subscribe();
-        }
-
-        async function initCheck() {
+        async function verifyTeamStillExists() {
             const { data } = await supabaseClient.from('teams').select('team_id').eq('team_id', teamId).maybeSingle();
             if (!data) {
-                kickToLogin();
-                return;
+                localStorage.clear();
+                window.location.href = 'login.html';
             }
-            refreshHUD();
-            listenForReset();
         }
+        verifyTeamStillExists();
+        setInterval(verifyTeamStillExists, 10000);
 
-        // Attach listeners across all 40 target indices
+        let processingLock = false;
+        let currentMarkerId = null;
+        let questionsList = [];
+        const container = document.getElementById('target-container');
+        const TOTAL_MARKERS = 20; // Exact 20 MindAR targets
+
+        // Pre-fetch all trivia questions from Supabase
+        async function loadQuestions() {
+            const { data, error } = await supabaseClient.from('trivia_questions').select('*').order('id', { ascending: true });
+            if (!error && data) {
+                questionsList = data;
+            }
+        }
+        loadQuestions();
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const observer = new MutationObserver((mutations, obs) => {
+                const videoEl = document.querySelector('video');
+                if (videoEl) {
+                    videoEl.setAttribute('autoplay', '');
+                    videoEl.setAttribute('muted', '');
+                    videoEl.setAttribute('playsinline', '');
+                    obs.disconnect();
+                }
+            });
+            observer.observe(document.body, { childList: true, subtree: true });
+        });
+
+        // Initialize 20 MindAR image targets
         for (let i = 0; i < TOTAL_MARKERS; i++) {
             let entity = document.createElement('a-entity');
             entity.setAttribute('mindar-image-target', `targetIndex: ${i}`);
@@ -196,113 +164,90 @@
             entity.addEventListener('targetFound', async () => {
                 if (processingLock) return;
                 processingLock = true;
-                activeMarkerId = paddedId;
+                currentMarkerId = paddedId;
 
-                const { data: scanned } = await supabaseClient
+                // Check if this marker has already been scanned by the team
+                const { data: existingLog } = await supabaseClient
                     .from('scan_logs')
                     .select('id')
                     .eq('team_id', teamId)
-                    .eq('marker_id', paddedId)
+                    .eq('marker_id', currentMarkerId)
                     .maybeSingle();
 
-                if (scanned) {
-                    showAlreadyScannedModal(paddedId);
-                } else {
-                    await loadQuestionForMarker(paddedId);
+                if (existingLog) {
+                    showResultModal("Already Scanned", "Your team has already answered this question!", false);
+                    return;
                 }
+
+                // Show question prompt for this marker index
+                const qIndex = i % (questionsList.length || 1);
+                const qData = questionsList[qIndex] || {
+                    question: "Which planet is known as the Red Planet?",
+                    options: ["Earth", "Mars", "Jupiter", "Venus"],
+                    correct_option: 1
+                };
+
+                presentQuestion(qData);
             });
 
             container.appendChild(entity);
         }
 
-        async function loadQuestionForMarker(markerId) {
-            const { data: questions } = await supabaseClient.from('trivia_questions').select('*').order('id', { ascending: true });
-            if (!questions || questions.length === 0) {
-                alert("Error loading trivia questions.");
-                processingLock = false;
-                return;
-            }
+        function presentQuestion(qData) {
+            document.getElementById('questionTitle').innerText = `Marker ${currentMarkerId} Challenge`;
+            document.getElementById('questionText').innerText = qData.question;
+            const optsContainer = document.getElementById('optionsContainer');
+            optsContainer.innerHTML = "";
 
-            const questionIndex = (parseInt(markerId, 10) - 1) % questions.length;
-            currentQuestion = questions[questionIndex];
-
-            document.getElementById('markerBadge').innerText = `🎯 Marker ${markerId}`;
-            document.getElementById('questionText').innerText = currentQuestion.question;
-            
-            const optionsContainer = document.getElementById('optionsContainer');
-            optionsContainer.innerHTML = '';
-
-            const options = typeof currentQuestion.options === 'string' ? JSON.parse(currentQuestion.options) : currentQuestion.options;
+            const options = typeof qData.options === 'string' ? JSON.parse(qData.options) : qData.options;
 
             options.forEach((optText, index) => {
-                let btn = document.createElement('button');
+                const btn = document.createElement('button');
                 btn.className = 'option-btn';
-                btn.innerText = optText;
-                btn.onclick = () => submitAnswer(index);
-                optionsContainer.appendChild(btn);
+                btn.innerText = `${String.fromCharCode(65 + index)}) ${optText}`;
+                btn.onclick = () => submitAnswer(index === qData.correct_option);
+                optsContainer.appendChild(btn);
             });
 
-            document.getElementById('quizBody').style.display = "block";
-            document.getElementById('resultBody').style.display = "none";
-            document.getElementById('quizModal').style.display = "block";
+            document.getElementById('triviaModal').style.display = 'block';
         }
 
-        async function submitAnswer(selectedIndex) {
-            const isCorrect = (selectedIndex === currentQuestion.correct_option);
+        async function submitAnswer(isCorrect) {
+            document.getElementById('triviaModal').style.display = 'none';
 
             const { data, error } = await supabaseClient.rpc('process_trivia_answer', {
                 p_team_id: teamId,
-                p_marker_id: activeMarkerId,
+                p_marker_id: currentMarkerId,
                 p_is_correct: isCorrect
             });
 
-            document.getElementById('quizBody').style.display = "none";
-            document.getElementById('resultBody').style.display = "block";
-
             if (error) {
-                document.getElementById('resultTitle').innerText = "System Error";
-                document.getElementById('resultTitle').className = "error-text";
-                document.getElementById('resultMessage').innerText = error.message;
-            } else {
-                const res = Array.isArray(data) ? data[0] : data;
-                refreshHUD();
-
-                if (res && res.total_scanned >= TOTAL_MARKERS) {
-                    document.getElementById('resultTitle').innerText = "🏆 QUEST COMPLETE!";
-                    document.getElementById('resultTitle').className = "success-text";
-                    document.getElementById('resultMessage').innerText = "All 40 Markers Scanned! Return to Base. 🏁";
-                } else {
-                    document.getElementById('resultTitle').innerText = isCorrect ? "🎉 Correct!" : "💡 Nice Effort!";
-                    document.getElementById('resultTitle').className = isCorrect ? "success-text" : "error-text";
-                    document.getElementById('resultMessage').innerText = res ? res.message : "+5 Points!";
-                }
+                showResultModal("System Error", "Could not record answer.", false);
+            } else if (data && data.length > 0) {
+                const res = data[0];
+                showResultModal(res.success ? (isCorrect ? "✅ Correct!" : "💡 Nice Try!") : "Notice", res.message, isCorrect);
+                refreshScore();
             }
         }
 
-        function showAlreadyScannedModal(markerId) {
-            document.getElementById('markerBadge').innerText = `🎯 Marker ${markerId}`;
-            document.getElementById('quizBody').style.display = "none";
-            document.getElementById('resultBody').style.display = "block";
-            document.getElementById('resultTitle').innerText = "Already Scanned!";
-            document.getElementById('resultTitle').className = "error-text";
-            document.getElementById('resultMessage').innerText = "Your team has already answered this question.";
-            document.getElementById('quizModal').style.display = "block";
-        }
-
-        async function refreshHUD() {
-            const { data } = await supabaseClient.from('teams').select('score, scanned_count').eq('team_id', teamId).maybeSingle();
+        async function refreshScore() {
+            const { data } = await supabaseClient.from('teams').select('score').eq('team_id', teamId).single();
             if (data) {
-                document.getElementById('score-display').innerText = `Points: ${data.score || 0}`;
-                document.getElementById('progress-display').innerText = `Markers: ${data.scanned_count || 0}/40`;
+                document.getElementById('score-display').innerText = `Points: ${data.score}`;
             }
+        }
+
+        function showResultModal(title, message, isSuccess) {
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalTitle').className = isSuccess ? "success-text" : "error-text";
+            document.getElementById('modalMessage').innerText = message;
+            document.getElementById('resultModal').style.display = "block";
         }
 
         function closeModal() {
-            document.getElementById('quizModal').style.display = "none";
+            document.getElementById('resultModal').style.display = "none";
             setTimeout(() => { processingLock = false; }, 2000);
         }
-
-        initCheck();
     </script>
 </body>
 </html>
