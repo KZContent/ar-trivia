@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pirate Quest - Admin Live Monitor</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            margin: 0;
+        }
+        h1 { text-align: center; color: #38bdf8; }
+        .table-container {
+            max-width: 800px;
+            margin: 20px auto;
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+        th, td {
+            padding: 14px;
+            border-bottom: 1px solid #334155;
+        }
+        th { color: #38bdf8; font-size: 1.1rem; }
+        .completed { color: #4ade80; font-weight: bold; }
+        .in-progress { color: #facc15; }
+    </style>
+</head>
+<body>
+
+    <h1>🏴‍☠️ Event Live Monitor</h1>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Team Name</th>
+                    <th>Markers Found</th>
+                    <th>Total Points</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="leaderboard">
+                <tr><td colspan="5">Loading live stats...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        const SUPABASE_URL = "https://vkdilynwfkkmmmjiyxyw.supabase.co"; 
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrZGlseW53ZmtrbW1taml5eHl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MDA5NDUsImV4cCI6MjA5Nzk3Njk0NX0.AY267mdl4i6fcJuqNx1J3ANs-mNRHcydZvwD75OuAA0";
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        async function updateLeaderboard() {
+            const { data: teams } = await supabaseClient
+                .from('teams')
+                .select('*')
+                .order('score', { ascending: false });
+
+            const tbody = document.getElementById('leaderboard');
+            if (teams) {
+                tbody.innerHTML = '';
+                teams.forEach((t, i) => {
+                    const isDone = t.scanned_count >= 20;
+                    const statusText = isDone ? '<span class="completed">🏁 FINISHED</span>' : '<span class="in-progress">🏃 Hunting</span>';
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>#${i + 1}</td>
+                            <td><strong>${t.team_name}</strong></td>
+                            <td>${t.scanned_count} / 20</td>
+                            <td><strong>${t.score} pts</strong></td>
+                            <td>${statusText}</td>
+                        </tr>
+                    `;
+                });
+            }
+        }
+
+        updateLeaderboard();
+        setInterval(updateLeaderboard, 3000);
+    </script>
+</body>
+</html>
