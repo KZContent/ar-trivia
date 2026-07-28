@@ -145,11 +145,9 @@
         const teamId = localStorage.getItem('team_id');
         const teamName = localStorage.getItem('team_name');
         
-        // Validate teamId format (must be a valid UUID)
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (!teamId || !teamName || !uuidRegex.test(teamId)) {
-            localStorage.clear();
-            window.location.href = 'login.html';
+            kickToLogin();
         }
 
         const SUPABASE_URL = "https://vkdilynwfkkmmmjiyxyw.supabase.co"; 
@@ -157,13 +155,42 @@
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         document.getElementById('team-display').innerText = `🏴‍☠️ ${teamName}`;
-        refreshHUD();
-
+        
         let processingLock = false;
         let activeMarkerId = null;
         let currentQuestion = null;
         const container = document.getElementById('target-container');
         const TOTAL_MARKERS = 20; 
+
+        function kickToLogin() {
+            localStorage.clear();
+            window.location.href = 'login.html';
+        }
+
+        // Listen for Realtime Admin Resets
+        function listenForReset() {
+            supabaseClient
+                .channel('client-reset-listener')
+                .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'teams' }, (payload) => {
+                    // If all teams were wiped or our specific team was deleted
+                    if (!payload.old || payload.old.team_id === teamId) {
+                        alert("⚠️ The admin reset the game! Redirecting to registration...");
+                        kickToLogin();
+                    }
+                })
+                .subscribe();
+        }
+
+        // Verify team existence on boot
+        async function initCheck() {
+            const { data, error } = await supabaseClient.from('teams').select('team_id').eq('team_id', teamId).maybeSingle();
+            if (error || !data) {
+                kickToLogin();
+                return;
+            }
+            refreshHUD();
+            listenForReset();
+        }
 
         // Bind target listeners for all 20 markers
         for (let i = 0; i < TOTAL_MARKERS; i++) {
@@ -176,8 +203,7 @@
                 processingLock = true;
                 activeMarkerId = paddedId;
 
-                // Check if already scanned
-                const { data: scanned, error } = await supabaseClient
+                const { data: scanned } = await supabaseClient
                     .from('trivia_scans')
                     .select('id')
                     .eq('team_id', teamId)
@@ -202,7 +228,6 @@
                 return;
             }
 
-            // Maps marker_01 -> Q1, marker_02 -> Q2, etc.
             const questionIndex = (parseInt(markerId, 10) - 1) % questions.length;
             currentQuestion = questions[questionIndex];
 
@@ -247,7 +272,6 @@
                 const res = Array.isArray(data) ? data[0] : data;
                 refreshHUD();
 
-                // Check if all 20 markers are complete
                 if (res && res.total_scanned >= 20) {
                     document.getElementById('resultTitle').innerText = "🏆 QUEST COMPLETE!";
                     document.getElementById('resultTitle').className = "success-text";
@@ -282,6 +306,8 @@
             document.getElementById('quizModal').style.display = "none";
             setTimeout(() => { processingLock = false; }, 2000);
         }
+
+        initCheck();
     </script>
 </body>
 </html>
