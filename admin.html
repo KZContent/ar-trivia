@@ -3,58 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pirate Quest - Admin Live Monitor</title>
+    <title>Pirate Quest - Master Admin Panel</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body {
-            background-color: #0f172a;
-            color: #f8fafc;
-            font-family: Arial, sans-serif;
-            padding: 20px;
-            margin: 0;
-        }
-        h1 { text-align: center; color: #38bdf8; }
-        .table-container {
-            max-width: 800px;
-            margin: 20px auto;
-            background: #1e293b;
-            border-radius: 12px;
-            padding: 15px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            text-align: left;
-        }
-        th, td {
-            padding: 14px;
-            border-bottom: 1px solid #334155;
-        }
-        th { color: #38bdf8; font-size: 1.1rem; }
-        .completed { color: #4ade80; font-weight: bold; }
-        .in-progress { color: #facc15; }
+        body { font-family: Arial, sans-serif; background-color: #0d1117; color: #ffffff; margin: 0; padding: 20px; }
+        .header-title { text-align: center; color: #e43f5a; font-size: 32px; font-weight: bold; margin-bottom: 30px; }
+        .admin-container { display: flex; gap: 20px; max-width: 1200px; margin: 0 auto; align-items: flex-start; }
+        .panel-left { flex: 2; background-color: #162447; border-radius: 12px; padding: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); min-height: 500px; }
+        .panel-right { flex: 1; display: flex; flex-direction: column; gap: 20px; }
+        .card { background-color: #162447; border-radius: 12px; padding: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .panel-title { font-size: 20px; font-weight: bold; margin-top: 0; margin-bottom: 20px; }
+        .title-green { color: #28a745; }
+        .title-blue { color: #00d2fc; }
+        .title-yellow { color: #ffc107; }
+        .leaderboard-table { width: 100%; border-collapse: collapse; text-align: left; }
+        .leaderboard-table th { color: #a2a8d3; padding: 12px; border-bottom: 2px solid #1f4068; font-size: 16px; }
+        .leaderboard-table td { padding: 14px 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); font-size: 16px; }
+        .empty-row { text-align: center; color: #8b949e; padding: 40px !important; }
+        .control-desc { color: #8b949e; font-size: 14px; line-height: 1.5; margin-bottom: 20px; }
+        .modal-btn { background: #e43f5a; color: white; border: none; padding: 12px 20px; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        .modal-btn:hover { background: #b93246; }
+        .feed-box { background-color: #0d1117; border-radius: 8px; padding: 15px; font-family: 'Courier New', Courier, monospace; font-size: 13px; color: #a2a8d3; height: 250px; overflow-y: auto; border: 1px solid #1f4068; line-height: 1.6; }
     </style>
 </head>
 <body>
-
-    <h1>🏴‍☠️ Event Live Monitor</h1>
-
-    <div class="table-container">
-        <table>
-            <thead>
-                <tr>
-                    <th>Rank</th>
-                    <th>Team Name</th>
-                    <th>Markers Found</th>
-                    <th>Total Points</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody id="leaderboard">
-                <tr><td colspan="5">Loading live stats...</td></tr>
-            </tbody>
-        </table>
+    <div class="header-title">☠️ Pirate Quest - Master Control Deck ☠️</div>
+    <div class="admin-container">
+        <div class="panel-left">
+            <div class="panel-title title-green">Leaderboard (Real-time Scores & Markers)</div>
+            <table class="leaderboard-table">
+                <thead>
+                    <tr>
+                        <th style="width: 20%;">Rank</th>
+                        <th style="width: 40%;">Team Name</th>
+                        <th style="width: 20%;">Markers</th>
+                        <th style="width: 20%;">Score</th>
+                    </tr>
+                </thead>
+                <tbody id="leaderboard-rows">
+                    <tr><td colspan="4" class="empty-row">Waiting for teams to join...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="panel-right">
+            <div class="card">
+                <div class="panel-title title-blue">Game Controls</div>
+                <div class="control-desc">Use this button at the end of a round to wipe scores, clear scans, and restart the quest.</div>
+                <button class="modal-btn" onclick="resetEntireGame()">🔄 Reset Entire Game</button>
+            </div>
+            <div class="card">
+                <div class="panel-title title-yellow">Live Activity Feed</div>
+                <div id="activity-log" class="feed-box">[System]: Awaiting connection...</div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -62,33 +63,78 @@
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrZGlseW53ZmtrbW1taml5eHl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MDA5NDUsImV4cCI6MjA5Nzk3Njk0NX0.AY267mdl4i6fcJuqNx1J3ANs-mNRHcydZvwD75OuAA0";
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        async function updateLeaderboard() {
-            const { data: teams } = await supabaseClient
-                .from('teams')
-                .select('*')
-                .order('score', { ascending: false });
+        async function fetchLeaderboard() {
+            const rowContainer = document.getElementById('leaderboard-rows');
+            if (!rowContainer) return;
+            const { data, error } = await supabaseClient.from('teams').select('team_name, score, scanned_count').order('score', { ascending: false });
+            if (error) return;
+            if (data.length === 0) {
+                rowContainer.innerHTML = `<tr><td colspan="4" class="empty-row">Waiting for teams to join...</td></tr>`;
+                return;
+            }
+            rowContainer.innerHTML = "";
+            data.forEach((team, index) => {
+                const tr = document.createElement('tr');
+                let rankingStatus = "🏴‍☠️ Crew";
+                if (index === 0) rankingStatus = "🥇 Captain";
+                else if (index === 1) rankingStatus = "🥈 Quartermaster";
 
-            const tbody = document.getElementById('leaderboard');
-            if (teams) {
-                tbody.innerHTML = '';
-                teams.forEach((t, i) => {
-                    const isDone = t.scanned_count >= 20;
-                    const statusText = isDone ? '<span class="completed">🏁 FINISHED</span>' : '<span class="in-progress">🏃 Hunting</span>';
-                    tbody.innerHTML += `
-                        <tr>
-                            <td>#${i + 1}</td>
-                            <td><strong>${t.team_name}</strong></td>
-                            <td>${t.scanned_count} / 20</td>
-                            <td><strong>${t.score} pts</strong></td>
-                            <td>${statusText}</td>
-                        </tr>
-                    `;
-                });
+                const isDone = team.scanned_count >= 20;
+                const markerDisplay = isDone ? `<span style="color:#28a745; font-weight:bold;">20/20 🏁</span>` : `${team.scanned_count || 0}/20`;
+
+                tr.innerHTML = `
+                    <td style="font-weight: bold; color: #ffc107;">${rankingStatus}</td>
+                    <td style="font-weight: bold;">${team.team_name}</td>
+                    <td style="font-weight: bold;">${markerDisplay}</td>
+                    <td style="font-weight: bold; color: #28a745;">${team.score} pts</td>
+                `;
+                rowContainer.appendChild(tr);
+            });
+        }
+
+        function logActivity(message) {
+            const logBox = document.getElementById('activity-log');
+            if (!logBox) return;
+            const timestamp = new Date().toLocaleTimeString();
+            logBox.innerHTML += `<br>[${timestamp}]: ${message}`;
+            logBox.scrollTop = logBox.scrollHeight;
+        }
+
+        function initRealtimeFeed() {
+            supabaseClient
+                .channel('schema-db-changes')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'trivia_scans' }, async (payload) => {
+                    const newLog = payload.new;
+                    const { data } = await supabaseClient.from('teams').select('team_name').eq('team_id', newLog.team_id).maybeSingle();
+                    const name = data ? data.team_name : newLog.team_id;
+                    
+                    if (newLog.is_correct) {
+                        logActivity(`🎯 Team "${name}" answered <span style="color: #28a745;">CORRECTLY</span> on marker_${newLog.marker_id} (+10 pts)`);
+                    } else {
+                        logActivity(`💡 Team "${name}" got marker_${newLog.marker_id} wrong (+5 pts effort)`);
+                    }
+                    fetchLeaderboard();
+                })
+                .subscribe();
+        }
+
+        async function resetEntireGame() {
+            if (!confirm("⚠️ Are you absolutely sure you want to wipe the game? This will erase all scores, scanned markers, and team registrations!")) return;
+            try {
+                // Delete scan history and registered teams
+                await supabaseClient.from('trivia_scans').delete().neq('id', -1);
+                await supabaseClient.from('teams').delete().neq('score', -9999);
+
+                logActivity("System Reset Performed.");
+                fetchLeaderboard();
+                alert("🏴‍☠️ Database swept clean successfully!");
+            } catch (err) {
+                console.error("Wipe failed:", err);
             }
         }
 
-        updateLeaderboard();
-        setInterval(updateLeaderboard, 3000);
+        fetchLeaderboard();
+        initRealtimeFeed();
     </script>
 </body>
 </html>

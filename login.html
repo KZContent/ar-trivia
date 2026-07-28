@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pirate Quest - Team Login</title>
+    <title>Pirate Quest - Team Registration</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body {
-            background-color: #0f172a;
-            color: #f8fafc;
+            background-color: #0d1117;
+            color: #ffffff;
             font-family: Arial, sans-serif;
             display: flex;
             justify-content: center;
@@ -17,36 +17,53 @@
             margin: 0;
         }
         .login-card {
-            background: #1e293b;
+            background: #162447;
             padding: 30px;
             border-radius: 12px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.5);
             text-align: center;
             width: 85%;
             max-width: 360px;
-            border: 2px solid #e2e8f0;
+            border: 2px solid #1f4068;
         }
-        select, button {
+        .login-card h1 {
+            color: #e43f5a;
+            margin-top: 0;
+        }
+        input[type="text"], button {
             width: 100%;
             padding: 12px;
             margin-top: 15px;
-            border-radius: 8px;
+            border-radius: 6px;
             font-size: 16px;
             font-weight: bold;
+            box-sizing: border-box;
         }
-        select { background: #334155; color: #fff; border: 1px solid #475569; }
-        button { background: #e11d48; color: #fff; border: none; cursor: pointer; }
+        input[type="text"] {
+            background: #0d1117;
+            color: #fff;
+            border: 1px solid #1f4068;
+            text-align: center;
+        }
+        button {
+            background: #e43f5a;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: #b93246;
+        }
     </style>
 </head>
 <body>
 
     <div class="login-card">
-        <h1>🏴‍☠️ Pirate Quest</h1>
-        <p>Select your team to begin!</p>
-        <select id="teamSelect">
-            <option value="">Loading teams...</option>
-        </select>
-        <button onclick="login()">Start Hunt</button>
+        <h1>☠️ Pirate Quest</h1>
+        <p style="color: #a2a8d3;">Enter your Team Name to begin:</p>
+        <input type="text" id="teamInput" placeholder="e.g. Black Pearls" maxlength="25" />
+        <button onclick="loginOrCreateTeam()">Start Hunt 🏴‍☠️</button>
     </div>
 
     <script>
@@ -54,28 +71,42 @@
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrZGlseW53ZmtrbW1taml5eHl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MDA5NDUsImV4cCI6MjA5Nzk3Njk0NX0.AY267mdl4i6fcJuqNx1J3ANs-mNRHcydZvwD75OuAA0";
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        async function loadTeams() {
-            const { data: teams } = await supabaseClient.from('teams').select('*').order('team_name');
-            const select = document.getElementById('teamSelect');
-            select.innerHTML = '<option value="">-- Choose Team --</option>';
-            if (teams) {
-                teams.forEach(t => {
-                    select.innerHTML += `<option value="${t.team_id}">${t.team_name}</option>`;
-                });
-            }
-        }
-        loadTeams();
+        async function loginOrCreateTeam() {
+            const input = document.getElementById('teamInput');
+            const teamName = input.value.trim();
 
-        function login() {
-            const select = document.getElementById('teamSelect');
-            const teamId = select.value;
-            const teamName = select.options[select.selectedIndex].text;
-
-            if (!teamId) {
-                alert("Please select a team!");
+            if (!teamName) {
+                alert("Please enter a valid Team Name!");
                 return;
             }
 
+            // 1. Check if team already exists
+            let { data: existingTeam } = await supabaseClient
+                .from('teams')
+                .select('*')
+                .ilike('team_name', teamName)
+                .maybeSingle();
+
+            let teamId;
+
+            if (existingTeam) {
+                teamId = existingTeam.team_id;
+            } else {
+                // 2. Create new team if it doesn't exist
+                const { data: newTeam, error } = await supabaseClient
+                    .from('teams')
+                    .insert([{ team_name: teamName, score: 0, scanned_count: 0 }])
+                    .select()
+                    .single();
+
+                if (error) {
+                    alert("Error registering team: " + error.message);
+                    return;
+                }
+                teamId = newTeam.team_id;
+            }
+
+            // Store in browser memory
             localStorage.setItem('team_id', teamId);
             localStorage.setItem('team_name', teamName);
             window.location.href = 'index.html';
