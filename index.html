@@ -145,7 +145,10 @@
         const teamId = localStorage.getItem('team_id');
         const teamName = localStorage.getItem('team_name');
         
-        if (!teamId || !teamName) {
+        // Validate teamId format (must be a valid UUID)
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!teamId || !teamName || !uuidRegex.test(teamId)) {
+            localStorage.clear();
             window.location.href = 'login.html';
         }
 
@@ -174,7 +177,7 @@
                 activeMarkerId = paddedId;
 
                 // Check if already scanned
-                const { data: scanned } = await supabaseClient
+                const { data: scanned, error } = await supabaseClient
                     .from('trivia_scans')
                     .select('id')
                     .eq('team_id', teamId)
@@ -192,9 +195,9 @@
         }
 
         async function loadQuestionForMarker(markerId) {
-            const { data: questions } = await supabaseClient.from('trivia_questions').select('*');
-            if (!questions || questions.length === 0) {
-                alert("Questions error");
+            const { data: questions, error } = await supabaseClient.from('trivia_questions').select('*').order('id', { ascending: true });
+            if (error || !questions || questions.length === 0) {
+                alert("Error loading questions from database.");
                 processingLock = false;
                 return;
             }
@@ -236,23 +239,23 @@
             document.getElementById('quizBody').style.display = "none";
             document.getElementById('resultBody').style.display = "block";
 
-            if (error || !data || data.length === 0) {
+            if (error) {
                 document.getElementById('resultTitle').innerText = "System Error";
                 document.getElementById('resultTitle').className = "error-text";
-                document.getElementById('resultMessage').innerText = "Failed to submit answer.";
+                document.getElementById('resultMessage').innerText = error.message || "Failed to submit answer.";
             } else {
-                const res = data[0];
+                const res = Array.isArray(data) ? data[0] : data;
                 refreshHUD();
 
                 // Check if all 20 markers are complete
-                if (res.total_scanned >= 20) {
+                if (res && res.total_scanned >= 20) {
                     document.getElementById('resultTitle').innerText = "🏆 QUEST COMPLETE!";
                     document.getElementById('resultTitle').className = "success-text";
                     document.getElementById('resultMessage').innerText = "All Markers Scanned, Please go back to Base. 🏁🚩";
                 } else {
                     document.getElementById('resultTitle').innerText = isCorrect ? "🎉 Correct!" : "💡 Nice Effort!";
                     document.getElementById('resultTitle').className = isCorrect ? "success-text" : "error-text";
-                    document.getElementById('resultMessage').innerText = res.message;
+                    document.getElementById('resultMessage').innerText = res ? res.message : (isCorrect ? "+10 Points!" : "+5 Points!");
                 }
             }
         }
@@ -268,10 +271,10 @@
         }
 
         async function refreshHUD() {
-            const { data } = await supabaseClient.from('teams').select('score, scanned_count').eq('team_id', teamId).single();
+            const { data } = await supabaseClient.from('teams').select('score, scanned_count').eq('team_id', teamId).maybeSingle();
             if (data) {
-                document.getElementById('score-display').innerText = `Points: ${data.score}`;
-                document.getElementById('progress-display').innerText = `Markers: ${data.scanned_count}/20`;
+                document.getElementById('score-display').innerText = `Points: ${data.score || 0}`;
+                document.getElementById('progress-display').innerText = `Markers: ${data.scanned_count || 0}/20`;
             }
         }
 
