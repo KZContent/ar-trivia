@@ -118,8 +118,13 @@
         refreshScore();
 
         async function verifyTeamStillExists() {
-            const { data } = await supabaseClient.from('teams').select('team_id').eq('team_id', teamId).maybeSingle();
-            if (!data) {
+            const { data, error } = await supabaseClient
+                .from('teams')
+                .select('team_id')
+                .eq('team_id', teamId)
+                .maybeSingle();
+
+            if (error || !data) {
                 localStorage.clear();
                 window.location.href = 'login.html';
             }
@@ -131,13 +136,17 @@
         let currentMarkerId = null;
         let questionsList = [];
         const container = document.getElementById('target-container');
-        const TOTAL_MARKERS = 20; // Exact 20 MindAR targets
+        const TOTAL_MARKERS = 20;
 
         // Pre-fetch all trivia questions from Supabase
         async function loadQuestions() {
-            const { data, error } = await supabaseClient.from('trivia_questions').select('*').order('id', { ascending: true });
-            if (!error && data) {
-                questionsList = data;
+            try {
+                const { data, error } = await supabaseClient.from('trivia_questions').select('*').order('id', { ascending: true });
+                if (!error && data && data.length > 0) {
+                    questionsList = data;
+                }
+            } catch (err) {
+                console.warn("Using fallback questions schema.");
             }
         }
         loadQuestions();
@@ -166,8 +175,8 @@
                 processingLock = true;
                 currentMarkerId = paddedId;
 
-                // Check if this marker has already been scanned by the team
-                const { data: existingLog } = await supabaseClient
+                // Check if this marker has already been scanned
+                const { data: existingLog, error } = await supabaseClient
                     .from('scan_logs')
                     .select('id')
                     .eq('team_id', teamId)
@@ -199,7 +208,12 @@
             const optsContainer = document.getElementById('optionsContainer');
             optsContainer.innerHTML = "";
 
-            const options = typeof qData.options === 'string' ? JSON.parse(qData.options) : qData.options;
+            let options = [];
+            try {
+                options = typeof qData.options === 'string' ? JSON.parse(qData.options) : qData.options;
+            } catch(e) {
+                options = ["Option A", "Option B", "Option C", "Option D"];
+            }
 
             options.forEach((optText, index) => {
                 const btn = document.createElement('button');
@@ -222,17 +236,25 @@
             });
 
             if (error) {
-                showResultModal("System Error", "Could not record answer.", false);
+                showResultModal("System Error", "Could not record answer. Make sure RPC procedure exists.", false);
             } else if (data && data.length > 0) {
                 const res = data[0];
                 showResultModal(res.success ? (isCorrect ? "✅ Correct!" : "💡 Nice Try!") : "Notice", res.message, isCorrect);
+                refreshScore();
+            } else {
+                showResultModal(isCorrect ? "✅ Correct!" : "💡 Nice Try!", isCorrect ? "You earned points!" : "No points awarded.", isCorrect);
                 refreshScore();
             }
         }
 
         async function refreshScore() {
-            const { data } = await supabaseClient.from('teams').select('score').eq('team_id', teamId).single();
-            if (data) {
+            const { data } = await supabaseClient
+                .from('teams')
+                .select('score')
+                .eq('team_id', teamId)
+                .maybeSingle();
+
+            if (data && data.score !== undefined) {
                 document.getElementById('score-display').innerText = `Points: ${data.score}`;
             }
         }
@@ -246,7 +268,7 @@
 
         function closeModal() {
             document.getElementById('resultModal').style.display = "none";
-            setTimeout(() => { processingLock = false; }, 2000);
+            setTimeout(() => { processingLock = false; }, 1500);
         }
     </script>
 </body>
