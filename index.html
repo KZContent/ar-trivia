@@ -67,7 +67,10 @@
 <body>
 
     <div id="game-hud">
-        <div class="hud-card" id="team-display">Team: Loading...</div>
+        <!-- Triple-tap trigger added to team display card -->
+        <div class="hud-card" id="team-display" onclick="handleSecretTap()" style="cursor: pointer; user-select: none;">
+            Team: Loading...
+        </div>
         <div class="hud-card" id="score-display">Points: 0</div>
     </div>
 
@@ -140,6 +143,28 @@
         const TOTAL_MARKERS = 20;
         const container = document.getElementById('target-container');
 
+        // Secret Triple-Tap Handler for Reset
+        let tapCount = 0;
+        let tapTimer = null;
+
+        function handleSecretTap() {
+            tapCount++;
+
+            clearTimeout(tapTimer);
+            tapTimer = setTimeout(() => {
+                tapCount = 0;
+            }, 1500);
+
+            if (tapCount === 3) {
+                tapCount = 0;
+                if (confirm("⚠️ SECRET RESET: Are you sure you want to clear all team progress and score?")) {
+                    localStorage.clear();
+                    alert("Game progress reset!");
+                    window.location.href = 'login.html';
+                }
+            }
+        }
+
         // Helper functions for Local Storage
         function getScannedMarkers() {
             return JSON.parse(localStorage.getItem('scanned_markers') || "[]");
@@ -165,7 +190,7 @@
             document.getElementById('score-display').innerText = `Points: ${getScore()}`;
         }
 
-        // Initialize targets
+        // Initialize 20 MindAR targets
         for (let i = 0; i < TOTAL_MARKERS; i++) {
             let entity = document.createElement('a-entity');
             entity.setAttribute('mindar-image-target', `targetIndex: ${i}`);
@@ -213,7 +238,7 @@
             markAsScanned(currentMarkerId);
 
             if (isCorrect) {
-                addScore(10); // 10 Points for correct answer
+                addScore(10);
                 showResultModal("✅ Correct!", "+10 Points earned!", true);
             } else {
                 showResultModal("💡 Nice Try!", "0 Points earned.", false);
