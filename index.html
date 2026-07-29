@@ -37,6 +37,19 @@
         }
         #score-display { float: right; background: rgba(228, 63, 90, 0.9); }
 
+        /* Start Overlay for Mobile Browsers */
+        #start-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(22, 36, 71, 0.95); z-index: 20000;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            color: white; text-align: center; font-family: Arial, sans-serif;
+        }
+        .start-btn {
+            background: #e43f5a; color: white; border: none; padding: 16px 32px;
+            font-size: 18px; font-weight: bold; border-radius: 30px; margin-top: 20px;
+            cursor: pointer; box-shadow: 0 4px 15px rgba(228, 63, 90, 0.5);
+        }
+
         .modal {
             display: none; position: fixed; z-index: 10000;
             left: 0; top: 0; width: 100%; height: 100%;
@@ -66,8 +79,14 @@
 </head>
 <body>
 
+    <!-- Camera Mobile Start Permission Overlay -->
+    <div id="start-overlay">
+        <h2>📷 Camera Permission Required</h2>
+        <p style="padding: 0 20px; color: #ccc;">Tap below to launch the AR Scanner camera feed.</p>
+        <button class="start-btn" onclick="startARSession()">Start AR Camera</button>
+    </div>
+
     <div id="game-hud">
-        <!-- Triple-tap trigger added to team display card -->
         <div class="hud-card" id="team-display" onclick="handleSecretTap()" style="cursor: pointer; user-select: none;">
             Team: Loading...
         </div>
@@ -92,8 +111,10 @@
         </div>
     </div>
 
+    <!-- autoStart is set to false to prevent premature mobile blocking -->
     <a-scene 
-        mindar-image="imageTargetSrc: ./targets.mind; autoStart: true; maxTrack: 1; uiScanning: yes; uiLoading: yes;" 
+        id="ar-scene"
+        mindar-image="imageTargetSrc: ./targets.mind; autoStart: false; maxTrack: 1; uiScanning: yes; uiLoading: yes;" 
         embedded 
         renderer="alpha: true; antialias: true; precision: medium;"
         color-space="sRGB"
@@ -113,7 +134,18 @@
         document.getElementById('team-display').innerText = `Team: ${teamName}`;
         updateHUD();
 
-        // Built-in Questions list (20 Questions matching your 20 markers)
+        // Start MindAR camera explicitly through a direct touch gesture
+        function startARSession() {
+            document.getElementById('start-overlay').style.display = 'none';
+            const sceneEl = document.getElementById('ar-scene');
+            const arSystem = sceneEl.systems["mindar-image-system"];
+            
+            if (arSystem) {
+                arSystem.start(); // Direct trigger satisfies iOS & Android camera policies
+            }
+        }
+
+        // 20 Built-in Questions
         const questionsList = [
             { q: "Which planet is known as the Red Planet?", opts: ["Earth", "Mars", "Jupiter", "Venus"], ans: 1 },
             { q: "What is the capital of France?", opts: ["Berlin", "Madrid", "Paris", "Rome"], ans: 2 },
@@ -151,13 +183,11 @@
             tapCount++;
 
             clearTimeout(tapTimer);
-            tapTimer = setTimeout(() => {
-                tapCount = 0;
-            }, 1500);
+            tapTimer = setTimeout(() => { tapCount = 0; }, 1500);
 
             if (tapCount === 3) {
                 tapCount = 0;
-                if (confirm("⚠️ SECRET RESET: Are you sure you want to clear all team progress and score?")) {
+                if (confirm("⚠️ SECRET RESET: Clear team progress and score?")) {
                     localStorage.clear();
                     alert("Game progress reset!");
                     window.location.href = 'login.html';
@@ -165,7 +195,6 @@
             }
         }
 
-        // Helper functions for Local Storage
         function getScannedMarkers() {
             return JSON.parse(localStorage.getItem('scanned_markers') || "[]");
         }
