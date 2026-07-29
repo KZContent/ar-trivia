@@ -48,7 +48,6 @@
         button:hover { background: #b93246; }
         .error { color: #ff4d4d; margin-top: 10px; font-size: 14px; }
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -56,49 +55,35 @@
         <h1>🧩 AR Trivia Quest 🧩</h1>
         <p>Enter your Team Name to join the challenge!</p>
         <input type="text" id="teamNameInput" placeholder="e.g. Brainiacs" required>
-        <button onclick="registerTeam()">Join Game</button>
+        <button onclick="registerTeam()">Start Quest</button>
         <div id="errorMessage" class="error"></div>
     </div>
 
     <script>
-        const SUPABASE_URL = "https://vkdilynwfkkmmmjiyxyw.supabase.co"; 
-        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrZGlseW53ZmtrbW1taml5eHl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MDA5NDUsImV4cCI6MjA5Nzk3Njk0NX0.AY267mdl4i6fcJuqNx1J3ANs-mNRHcydZvwD75OuAA0";
-
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-        async function registerTeam() {
+        function registerTeam() {
             const teamName = document.getElementById('teamNameInput').value.trim();
             const errorDiv = document.getElementById('errorMessage');
             errorDiv.innerText = "";
 
             if (!teamName) {
-                errorDiv.innerText = "Please enter a valid name!";
+                errorDiv.innerText = "Please enter a valid team name!";
                 return;
             }
 
-            const teamId = teamName.toLowerCase().replace(/[^a-z0-9]/g, '-');
-
-            const { data, error } = await supabaseClient
-                .from('teams')
-                .insert([{ team_id: teamId, team_name: teamName, scanned_count: 0, score: 0 }])
-                .select();
-
-            if (error) {
-                if (error.code === '23505') { 
-                    localStorage.setItem('team_id', teamId);
-                    localStorage.setItem('team_name', teamName);
-                    window.location.href = 'index.html';
-                } else {
-                    errorDiv.innerText = "Error: " + error.message;
-                }
-            } else {
-                localStorage.setItem('team_id', teamId);
-                localStorage.setItem('team_name', teamName);
-                window.location.href = 'index.html';
+            // Save team details & initialize local storage
+            localStorage.setItem('team_name', teamName);
+            if (!localStorage.getItem('team_score')) {
+                localStorage.setItem('team_score', '0');
             }
+            if (!localStorage.getItem('scanned_markers')) {
+                localStorage.setItem('scanned_markers', JSON.stringify([]));
+            }
+
+            window.location.href = 'index.html';
         }
 
-        if (localStorage.getItem('team_id')) {
+        // Auto-redirect if team is already registered on this device
+        if (localStorage.getItem('team_name')) {
             window.location.href = 'index.html';
         }
     </script>
