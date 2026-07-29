@@ -3,129 +3,100 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AR Trivia Quest - Admin Panel</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <title>Leaderboard - Admin Dashboard</title>
     <style>
-        body { font-family: Arial, sans-serif; background-color: #0d1117; color: #ffffff; margin: 0; padding: 20px; }
-        .header-title { text-align: center; color: #ffc107; font-size: 32px; font-weight: bold; margin-bottom: 30px; }
-        .admin-container { display: flex; gap: 20px; max-width: 1200px; margin: 0 auto; align-items: flex-start; }
-        .panel-left { flex: 2; background-color: #162447; border-radius: 12px; padding: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); min-height: 500px; }
-        .panel-right { flex: 1; display: flex; flex-direction: column; gap: 20px; }
-        .card { background-color: #162447; border-radius: 12px; padding: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-        .panel-title { font-size: 20px; font-weight: bold; margin-top: 0; margin-bottom: 20px; }
-        .title-green { color: #28a745; }
-        .title-blue { color: #00d2fc; }
-        .title-yellow { color: #ffc107; }
-        .leaderboard-table { width: 100%; border-collapse: collapse; text-align: left; }
-        .leaderboard-table th { color: #a2a8d3; padding: 12px; border-bottom: 2px solid #1f4068; font-size: 16px; }
-        .leaderboard-table td { padding: 14px 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); font-size: 16px; }
-        .empty-row { text-align: center; color: #8b949e; padding: 40px !important; }
-        .control-desc { color: #8b949e; font-size: 14px; line-height: 1.5; margin-bottom: 20px; }
-        .modal-btn { background: #e43f5a; color: white; border: none; padding: 12px 20px; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
-        .modal-btn:hover { background: #b93246; }
-        .feed-box { background-color: #0d1117; border-radius: 8px; padding: 15px; font-family: 'Courier New', Courier, monospace; font-size: 13px; color: #a2a8d3; height: 250px; overflow-y: auto; border: 1px solid #1f4068; line-height: 1.6; }
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #162447;
+            color: #ffffff;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #1f4068;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        }
+        h1 { text-align: center; color: #ffc107; margin-bottom: 20px; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #1f4068;
+        }
+        th { background-color: #0f4c75; color: #00d2fc; }
+        tr:nth-child(even) { background-color: rgba(255,255,255,0.05); }
+        .refresh-btn {
+            background: #e43f5a; color: white; border: none; padding: 10px 20px;
+            font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer;
+            width: 100%; margin-top: 15px;
+        }
+        .refresh-btn:hover { background: #d0354d; }
     </style>
 </head>
 <body>
-    <div class="header-title">🧩 AR Trivia Quest - Admin Panel 🧩</div>
-    <div class="admin-container">
-        <div class="panel-left">
-            <div class="panel-title title-green">Leaderboard (Real-time Scores)</div>
-            <table class="leaderboard-table">
-                <thead>
-                    <tr>
-                        <th style="width: 20%;">Rank</th>
-                        <th style="width: 40%;">Team Name</th>
-                        <th style="width: 20%;">Scanned</th>
-                        <th style="width: 20%;">Score</th>
-                    </tr>
-                </thead>
-                <tbody id="leaderboard-rows">
-                    <tr><td colspan="4" class="empty-row">Waiting for teams to join...</td></tr>
-                </tbody>
-            </table>
-        </div>
-        <div class="panel-right">
-            <div class="card">
-                <div class="panel-title title-blue">Game Controls</div>
-                <div class="control-desc">Use this button to reset scores and clear team progress for a new session.</div>
-                <button class="modal-btn" onclick="resetEntireGame()">🔄 Reset Entire Game</button>
-            </div>
-            <div class="card">
-                <div class="panel-title title-yellow">Live Activity Feed</div>
-                <div id="activity-log" class="feed-box">[System]: Awaiting connection...</div>
-            </div>
-        </div>
+
+    <div class="container">
+        <h1>📊 Live Leaderboard</h1>
+        <table>
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Team Name</th>
+                    <th>Score</th>
+                </tr>
+            </thead>
+            <tbody id="leaderboard-body">
+                <tr><td colspan="3" style="text-align:center;">Loading scores...</td></tr>
+            </tbody>
+        </table>
+        <button class="refresh-btn" onclick="fetchScores()">🔄 Refresh Leaderboard</button>
     </div>
 
     <script>
-        const SUPABASE_URL = "https://vkdilynwfkkmmmjiyxyw.supabase.co"; 
-        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrZGlseW53ZmtrbW1taml5eHl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MDA5NDUsImV4cCI6MjA5Nzk3Njk0NX0.AY267mdl4i6fcJuqNx1J3ANs-mNRHcydZvwD75OuAA0";
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // Use raw GitHub content URL or API to bypass caching
+        const RAW_JSON_URL = "https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME/main/scores.json";
 
-        async function fetchLeaderboard() {
-            const rowContainer = document.getElementById('leaderboard-rows');
-            if (!rowContainer) return;
-            const { data, error } = await supabaseClient.from('teams').select('team_name, score, scanned_count').order('score', { ascending: false });
-            if (error) return;
-            if (!data || data.length === 0) {
-                rowContainer.innerHTML = `<tr><td colspan="4" class="empty-row">Waiting for teams to join...</td></tr>`;
-                return;
-            }
-            rowContainer.innerHTML = "";
-            data.forEach((team, index) => {
-                const tr = document.createElement('tr');
-                let rankLabel = `#${index + 1}`;
-                if (index === 0) rankLabel = "🥇 1st";
-                else if (index === 1) rankLabel = "🥈 2nd";
-                else if (index === 2) rankLabel = "🥉 3rd";
-                tr.innerHTML = `<td style="font-weight: bold; color: #ffc107;">${rankLabel}</td><td style="font-weight: bold;">${team.team_name}</td><td>${team.scanned_count || 0}/20</td><td style="font-weight: bold; color: #28a745;">${team.score} pts</td>`;
-                rowContainer.appendChild(tr);
-            });
-        }
-
-        function logActivity(message) {
-            const logBox = document.getElementById('activity-log');
-            if (!logBox) return;
-            const timestamp = new Date().toLocaleTimeString();
-            logBox.innerHTML += `<br>[${timestamp}]: ${message}`;
-            logBox.scrollTop = logBox.scrollHeight;
-        }
-
-        function initRealtimeFeed() {
-            supabaseClient
-                .channel('schema-db-changes')
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'scan_logs' }, async (payload) => {
-                    const newLog = payload.new;
-                    const { data } = await supabaseClient.from('teams').select('team_name').eq('team_id', newLog.team_id).maybeSingle();
-                    const name = data ? data.team_name : newLog.team_id;
-                    
-                    if (newLog.is_correct) {
-                        logActivity(`✅ Team "${name}" answered Marker ${newLog.marker_id} CORRECTLY (+${newLog.points_awarded} pts)`);
-                    } else {
-                        logActivity(`❌ Team "${name}" answered Marker ${newLog.marker_id} INCORRECTLY (+${newLog.points_awarded} pts)`);
-                    }
-                    fetchLeaderboard();
-                })
-                .subscribe();
-        }
-
-        async function resetEntireGame() {
-            if (!confirm("⚠️ Are you sure you want to wipe team scores and scan logs?")) return;
+        async function fetchScores() {
+            const body = document.getElementById('leaderboard-body');
             try {
-                await supabaseClient.from('scan_logs').delete().neq('team_id', '_none_');
-                await supabaseClient.from('teams').delete().neq('team_id', '_none_');
+                // Fetch scores with a cache-busting timestamp
+                const res = await fetch(`${RAW_JSON_URL}?t=${new Date().getTime()}`);
+                const data = await res.json();
+                
+                const teams = data.teams || {};
+                
+                // Sort teams by highest score
+                const sorted = Object.entries(teams).sort((a, b) => b[1] - a[1]);
 
-                logActivity("System Reset Performed.");
-                fetchLeaderboard();
-                alert("🧹 Game wiped successfully!");
+                if (sorted.length === 0) {
+                    body.innerHTML = '<tr><td colspan="3" style="text-align:center;">No teams logged in yet.</td></tr>';
+                    return;
+                }
+
+                body.innerHTML = sorted.map(([team, score], idx) => `
+                    <tr>
+                        <td><strong>#${idx + 1}</strong></td>
+                        <td>${team}</td>
+                        <td><span style="color: #4dff88; font-weight: bold;">${score} pts</span></td>
+                    </tr>
+                `).join('');
+
             } catch (err) {
-                console.error("Wipe failed:", err);
+                body.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#ff4d4d;">Failed to load leaderboard data.</td></tr>';
             }
         }
 
-        fetchLeaderboard();
-        initRealtimeFeed();
+        // Auto-refresh every 5 seconds
+        fetchScores();
+        setInterval(fetchScores, 5000);
     </script>
 </body>
 </html>
