@@ -2,89 +2,234 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AR Trivia Quest - Team Registration</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AR Trivia Quest - Scanner</title>
+    
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #1a1a2e;
-            color: #fff;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
+        html, body {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden; font-family: Arial, sans-serif; background-color: #000;
         }
-        .login-card {
-            background: #162447;
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.5);
-            text-align: center;
-            width: 80%;
-            max-width: 350px;
+
+        -webkit-video, video {
+            position: fixed !important; top: 0 !important; left: 0 !important;
+            width: 100vw !important; height: 100vh !important;
+            object-fit: cover !important; z-index: 0 !important;
         }
-        h1 { color: #ffc107; margin-bottom: 20px; }
-        input {
-            width: 90%;
-            padding: 12px;
-            margin: 15px 0;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
+
+        canvas, .a-canvas {
+            position: fixed !important; top: 0 !important; left: 0 !important;
+            width: 100vw !important; height: 100vh !important;
+            z-index: 1 !important; pointer-events: none !important;
         }
-        button {
-            background: #e43f5a;
-            color: white;
-            border: none;
-            padding: 12px 25px;
-            border-radius: 8px;
-            font-size: 16px;
-            cursor: pointer;
-            width: 100%;
-            font-weight: bold;
+
+        #game-hud {
+            position: fixed; top: 10px; left: 10px; right: 10px;
+            z-index: 9999 !important; font-family: Arial, sans-serif; pointer-events: none;
         }
-        button:hover { background: #b93246; }
-        .error { color: #ff4d4d; margin-top: 10px; font-size: 14px; }
+        .hud-card {
+            background: rgba(22, 36, 71, 0.85); color: #fff;
+            padding: 10px 15px; border-radius: 8px; display: inline-block;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3); font-weight: bold; pointer-events: auto;
+        }
+        #score-display { float: right; background: rgba(228, 63, 90, 0.9); }
+
+        .modal {
+            display: none; position: fixed; z-index: 10000;
+            left: 0; top: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.85); font-family: Arial, sans-serif;
+        }
+        .modal-content {
+            background-color: #162447; color: white; margin: 15% auto;
+            padding: 20px; border-radius: 12px; width: 85%; max-width: 400px;
+            text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            border: 2px solid #ffc107;
+        }
+        .option-btn {
+            background: #1f4068; color: white; border: 1px solid #00d2fc;
+            padding: 12px; border-radius: 6px; font-size: 15px; margin: 8px 0;
+            cursor: pointer; width: 100%; text-align: left; transition: 0.2s;
+            pointer-events: auto;
+        }
+        .option-btn:active { background: #00d2fc; color: #000; }
+        .modal-btn {
+            background: #e43f5a; color: white; border: none; padding: 12px 24px;
+            border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer;
+            margin-top: 15px; pointer-events: auto; width: 100%;
+        }
+        .error-text { color: #ff4d4d; }
+        .success-text { color: #4dff88; }
     </style>
 </head>
 <body>
 
-    <div class="login-card">
-        <h1>🧩 AR Trivia Quest 🧩</h1>
-        <p>Enter your Team Name to join the challenge!</p>
-        <input type="text" id="teamNameInput" placeholder="e.g. Brainiacs" required>
-        <button onclick="registerTeam()">Start Quest</button>
-        <div id="errorMessage" class="error"></div>
+    <div id="game-hud">
+        <div class="hud-card" id="team-display">Team: Loading...</div>
+        <div class="hud-card" id="score-display">Points: 0</div>
     </div>
 
+    <!-- Trivia Interaction Modal -->
+    <div id="triviaModal" class="modal">
+        <div class="modal-content">
+            <h3 id="questionTitle" style="color:#ffc107; margin-top:0;">Question</h3>
+            <p id="questionText" style="font-size: 16px; line-height: 1.4;"></p>
+            <div id="optionsContainer"></div>
+        </div>
+    </div>
+
+    <!-- Result Alert Modal -->
+    <div id="resultModal" class="modal">
+        <div class="modal-content">
+            <h2 id="modalTitle">Scan Status</h2>
+            <p id="modalMessage">Processing result...</p>
+            <button class="modal-btn" onclick="closeModal()">Continue Game</button>
+        </div>
+    </div>
+
+    <a-scene 
+        mindar-image="imageTargetSrc: ./targets.mind; autoStart: true; maxTrack: 1; uiScanning: yes; uiLoading: yes;" 
+        embedded 
+        renderer="alpha: true; antialias: true; precision: medium;"
+        color-space="sRGB"
+        vr-mode-ui="enabled: false" 
+        device-orientation-permission-ui="enabled: true">
+        
+        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+        <a-entity id="target-container"></a-entity>
+    </a-scene>
+
     <script>
-        function registerTeam() {
-            const teamName = document.getElementById('teamNameInput').value.trim();
-            const errorDiv = document.getElementById('errorMessage');
-            errorDiv.innerText = "";
-
-            if (!teamName) {
-                errorDiv.innerText = "Please enter a valid team name!";
-                return;
-            }
-
-            // Save team details & initialize local storage
-            localStorage.setItem('team_name', teamName);
-            if (!localStorage.getItem('team_score')) {
-                localStorage.setItem('team_score', '0');
-            }
-            if (!localStorage.getItem('scanned_markers')) {
-                localStorage.setItem('scanned_markers', JSON.stringify([]));
-            }
-
-            window.location.href = 'index.html';
+        const teamName = localStorage.getItem('team_name');
+        if (!teamName) {
+            window.location.href = 'login.html';
         }
 
-        // Auto-redirect if team is already registered on this device
-        if (localStorage.getItem('team_name')) {
-            window.location.href = 'index.html';
+        document.getElementById('team-display').innerText = `Team: ${teamName}`;
+        updateHUD();
+
+        // Built-in Questions list (20 Questions matching your 20 markers)
+        const questionsList = [
+            { q: "Which planet is known as the Red Planet?", opts: ["Earth", "Mars", "Jupiter", "Venus"], ans: 1 },
+            { q: "What is the capital of France?", opts: ["Berlin", "Madrid", "Paris", "Rome"], ans: 2 },
+            { q: "Which gas do plants absorb from the air?", opts: ["Oxygen", "Carbon Dioxide", "Nitrogen", "Hydrogen"], ans: 1 },
+            { q: "How many sides does an Octagon have?", opts: ["6", "7", "8", "10"], ans: 2 },
+            { q: "What is the largest ocean on Earth?", opts: ["Atlantic", "Indian", "Arctic", "Pacific"], ans: 3 },
+            { q: "Which animal is known as the King of the Jungle?", opts: ["Tiger", "Lion", "Elephant", "Leopard"], ans: 1 },
+            { q: "What color do you get mixing Blue and Yellow?", opts: ["Green", "Purple", "Orange", "Brown"], ans: 0 },
+            { q: "How many legs does a spider have?", opts: ["6", "8", "10", "12"], ans: 1 },
+            { q: "Which metal is liquid at room temperature?", opts: ["Gold", "Iron", "Mercury", "Silver"], ans: 2 },
+            { q: "What is the hardest natural substance on Earth?", opts: ["Gold", "Diamond", "Platinum", "Quartz"], ans: 1 },
+            { q: "How many days are in a leap year?", opts: ["365", "366", "367", "364"], ans: 1 },
+            { q: "Which organ pumps blood around the human body?", opts: ["Brain", "Lungs", "Heart", "Liver"], ans: 2 },
+            { q: "What is the freezing point of water?", opts: ["0°C", "10°C", "32°C", "-10°C"], ans: 0 },
+            { q: "Which instrument has 88 keys?", opts: ["Guitar", "Flute", "Piano", "Violin"], ans: 2 },
+            { q: "What fast land animal is the fastest in the world?", opts: ["Cheetah", "Lion", "Horse", "Falcon"], ans: 0 },
+            { q: "How many continents are on Earth?", opts: ["5", "6", "7", "8"], ans: 2 },
+            { q: "Which country invented paper?", opts: ["Egypt", "China", "Greece", "Rome"], ans: 1 },
+            { q: "What primary colors make Purple?", opts: ["Red & Blue", "Blue & Yellow", "Red & Yellow", "Green & Red"], ans: 0 },
+            { q: "What is the smallest planet in our solar system?", opts: ["Mars", "Mercury", "Venus", "Pluto"], ans: 1 },
+            { q: "Which star is closest to Earth?", opts: ["North Star", "Proxima Centauri", "The Sun", "Sirius"], ans: 2 }
+        ];
+
+        let processingLock = false;
+        let currentMarkerIndex = 0;
+        let currentMarkerId = "";
+        const TOTAL_MARKERS = 20;
+        const container = document.getElementById('target-container');
+
+        // Helper functions for Local Storage
+        function getScannedMarkers() {
+            return JSON.parse(localStorage.getItem('scanned_markers') || "[]");
+        }
+
+        function markAsScanned(markerId) {
+            const list = getScannedMarkers();
+            list.push(markerId);
+            localStorage.setItem('scanned_markers', JSON.stringify(list));
+        }
+
+        function getScore() {
+            return parseInt(localStorage.getItem('team_score') || "0");
+        }
+
+        function addScore(points) {
+            const current = getScore();
+            localStorage.setItem('team_score', (current + points).toString());
+            updateHUD();
+        }
+
+        function updateHUD() {
+            document.getElementById('score-display').innerText = `Points: ${getScore()}`;
+        }
+
+        // Initialize targets
+        for (let i = 0; i < TOTAL_MARKERS; i++) {
+            let entity = document.createElement('a-entity');
+            entity.setAttribute('mindar-image-target', `targetIndex: ${i}`);
+            let paddedId = (i + 1).toString().padStart(2, '0');
+
+            entity.addEventListener('targetFound', () => {
+                if (processingLock) return;
+                processingLock = true;
+                currentMarkerIndex = i;
+                currentMarkerId = paddedId;
+
+                const scanned = getScannedMarkers();
+                if (scanned.includes(paddedId)) {
+                    showResultModal("Already Scanned", "Your team has already answered this question!", false);
+                    return;
+                }
+
+                const qData = questionsList[i] || questionsList[0];
+                presentQuestion(qData);
+            });
+
+            container.appendChild(entity);
+        }
+
+        function presentQuestion(qData) {
+            document.getElementById('questionTitle').innerText = `Marker ${currentMarkerId} Challenge`;
+            document.getElementById('questionText').innerText = qData.q;
+            const optsContainer = document.getElementById('optionsContainer');
+            optsContainer.innerHTML = "";
+
+            qData.opts.forEach((optText, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.innerText = `${String.fromCharCode(65 + index)}) ${optText}`;
+                btn.onclick = () => submitAnswer(index === qData.ans);
+                optsContainer.appendChild(btn);
+            });
+
+            document.getElementById('triviaModal').style.display = 'block';
+        }
+
+        function submitAnswer(isCorrect) {
+            document.getElementById('triviaModal').style.display = 'none';
+
+            markAsScanned(currentMarkerId);
+
+            if (isCorrect) {
+                addScore(10); // 10 Points for correct answer
+                showResultModal("✅ Correct!", "+10 Points earned!", true);
+            } else {
+                showResultModal("💡 Nice Try!", "0 Points earned.", false);
+            }
+        }
+
+        function showResultModal(title, message, isSuccess) {
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalTitle').className = isSuccess ? "success-text" : "error-text";
+            document.getElementById('modalMessage').innerText = message;
+            document.getElementById('resultModal').style.display = "block";
+        }
+
+        function closeModal() {
+            document.getElementById('resultModal').style.display = "none";
+            setTimeout(() => { processingLock = false; }, 1500);
         }
     </script>
 </body>
