@@ -2,273 +2,89 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AR Trivia Quest - Scanner</title>
-    
-    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AR Trivia Quest - Team Registration</title>
     <style>
-        html, body {
-            margin: 0; padding: 0; width: 100%; height: 100%;
-            overflow: hidden; font-family: Arial, sans-serif; background-color: #000;
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
         }
-
-        -webkit-video, video {
-            position: fixed !important; top: 0 !important; left: 0 !important;
-            width: 100vw !important; height: 100vh !important;
-            object-fit: cover !important; z-index: 0 !important;
+        .login-card {
+            background: #162447;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+            text-align: center;
+            width: 80%;
+            max-width: 350px;
         }
-
-        canvas, .a-canvas {
-            position: fixed !important; top: 0 !important; left: 0 !important;
-            width: 100vw !important; height: 100vh !important;
-            z-index: 1 !important; pointer-events: none !important;
+        h1 { color: #ffc107; margin-bottom: 20px; }
+        input {
+            width: 90%;
+            padding: 12px;
+            margin: 15px 0;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
         }
-
-        #game-hud {
-            position: fixed; top: 10px; left: 10px; right: 10px;
-            z-index: 9999 !important; font-family: Arial, sans-serif; pointer-events: none;
+        button {
+            background: #e43f5a;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+            font-weight: bold;
         }
-        .hud-card {
-            background: rgba(22, 36, 71, 0.85); color: #fff;
-            padding: 10px 15px; border-radius: 8px; display: inline-block;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3); font-weight: bold; pointer-events: auto;
-        }
-        #score-display { float: right; background: rgba(228, 63, 90, 0.9); }
-
-        .modal {
-            display: none; position: fixed; z-index: 10000;
-            left: 0; top: 0; width: 100%; height: 100%;
-            background-color: rgba(0,0,0,0.85); font-family: Arial, sans-serif;
-        }
-        .modal-content {
-            background-color: #162447; color: white; margin: 15% auto;
-            padding: 20px; border-radius: 12px; width: 85%; max-width: 400px;
-            text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
-            border: 2px solid #ffc107;
-        }
-        .option-btn {
-            background: #1f4068; color: white; border: 1px solid #00d2fc;
-            padding: 12px; border-radius: 6px; font-size: 15px; margin: 8px 0;
-            cursor: pointer; width: 100%; text-align: left; transition: 0.2s;
-            pointer-events: auto;
-        }
-        .option-btn:active { background: #00d2fc; color: #000; }
-        .modal-btn {
-            background: #e43f5a; color: white; border: none; padding: 12px 24px;
-            border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer;
-            margin-top: 15px; pointer-events: auto; width: 100%;
-        }
-        .error-text { color: #ff4d4d; }
-        .success-text { color: #4dff88; }
+        button:hover { background: #b93246; }
+        .error { color: #ff4d4d; margin-top: 10px; font-size: 14px; }
     </style>
 </head>
 <body>
 
-    <div id="game-hud">
-        <div class="hud-card" id="team-display">Team: Loading...</div>
-        <div class="hud-card" id="score-display">Points: 0</div>
+    <div class="login-card">
+        <h1>🧩 AR Trivia Quest 🧩</h1>
+        <p>Enter your Team Name to join the challenge!</p>
+        <input type="text" id="teamNameInput" placeholder="e.g. Brainiacs" required>
+        <button onclick="registerTeam()">Start Quest</button>
+        <div id="errorMessage" class="error"></div>
     </div>
-
-    <!-- Trivia Interaction Modal -->
-    <div id="triviaModal" class="modal">
-        <div class="modal-content">
-            <h3 id="questionTitle" style="color:#ffc107; margin-top:0;">Question</h3>
-            <p id="questionText" style="font-size: 16px; line-height: 1.4;"></p>
-            <div id="optionsContainer"></div>
-        </div>
-    </div>
-
-    <!-- Result Alert Modal -->
-    <div id="resultModal" class="modal">
-        <div class="modal-content">
-            <h2 id="modalTitle">Scan Status</h2>
-            <p id="modalMessage">Processing result...</p>
-            <button class="modal-btn" onclick="closeModal()">Continue Game</button>
-        </div>
-    </div>
-
-    <a-scene 
-        mindar-image="imageTargetSrc: ./targets.mind; autoStart: true; maxTrack: 1; uiScanning: yes; uiLoading: yes;" 
-        embedded 
-        renderer="alpha: true; antialias: true; precision: medium;"
-        color-space="sRGB"
-        vr-mode-ui="enabled: false" 
-        device-orientation-permission-ui="enabled: true">
-        
-        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-        <a-entity id="target-container"></a-entity>
-    </a-scene>
 
     <script>
-        const teamId = localStorage.getItem('team_id');
-        const teamName = localStorage.getItem('team_name');
-        
-        if (!teamId || !teamName) {
-            window.location.href = 'login.html';
-        }
+        function registerTeam() {
+            const teamName = document.getElementById('teamNameInput').value.trim();
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.innerText = "";
 
-        const SUPABASE_URL = "https://vkdilynwfkkmmmjiyxyw.supabase.co"; 
-        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrZGlseW53ZmtrbW1taml5eHl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MDA5NDUsImV4cCI6MjA5Nzk3Njk0NX0.AY267mdl4i6fcJuqNx1J3ANs-mNRHcydZvwD75OuAA0";
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-        document.getElementById('team-display').innerText = `Team: ${teamName}`;
-        refreshScore();
-
-        async function verifyTeamStillExists() {
-            const { data, error } = await supabaseClient
-                .from('teams')
-                .select('team_id')
-                .eq('team_id', teamId)
-                .maybeSingle();
-
-            if (error || !data) {
-                localStorage.clear();
-                window.location.href = 'login.html';
-            }
-        }
-        verifyTeamStillExists();
-        setInterval(verifyTeamStillExists, 10000);
-
-        let processingLock = false;
-        let currentMarkerId = null;
-        let questionsList = [];
-        const container = document.getElementById('target-container');
-        const TOTAL_MARKERS = 20;
-
-        // Pre-fetch all trivia questions from Supabase
-        async function loadQuestions() {
-            try {
-                const { data, error } = await supabaseClient.from('trivia_questions').select('*').order('id', { ascending: true });
-                if (!error && data && data.length > 0) {
-                    questionsList = data;
-                }
-            } catch (err) {
-                console.warn("Using fallback questions schema.");
-            }
-        }
-        loadQuestions();
-
-        window.addEventListener('DOMContentLoaded', () => {
-            const observer = new MutationObserver((mutations, obs) => {
-                const videoEl = document.querySelector('video');
-                if (videoEl) {
-                    videoEl.setAttribute('autoplay', '');
-                    videoEl.setAttribute('muted', '');
-                    videoEl.setAttribute('playsinline', '');
-                    obs.disconnect();
-                }
-            });
-            observer.observe(document.body, { childList: true, subtree: true });
-        });
-
-        // Initialize 20 MindAR image targets
-        for (let i = 0; i < TOTAL_MARKERS; i++) {
-            let entity = document.createElement('a-entity');
-            entity.setAttribute('mindar-image-target', `targetIndex: ${i}`);
-            let paddedId = (i + 1).toString().padStart(2, '0');
-
-            entity.addEventListener('targetFound', async () => {
-                if (processingLock) return;
-                processingLock = true;
-                currentMarkerId = paddedId;
-
-                // Check if this marker has already been scanned
-                const { data: existingLog, error } = await supabaseClient
-                    .from('scan_logs')
-                    .select('id')
-                    .eq('team_id', teamId)
-                    .eq('marker_id', currentMarkerId)
-                    .maybeSingle();
-
-                if (existingLog) {
-                    showResultModal("Already Scanned", "Your team has already answered this question!", false);
-                    return;
-                }
-
-                // Show question prompt for this marker index
-                const qIndex = i % (questionsList.length || 1);
-                const qData = questionsList[qIndex] || {
-                    question: "Which planet is known as the Red Planet?",
-                    options: ["Earth", "Mars", "Jupiter", "Venus"],
-                    correct_option: 1
-                };
-
-                presentQuestion(qData);
-            });
-
-            container.appendChild(entity);
-        }
-
-        function presentQuestion(qData) {
-            document.getElementById('questionTitle').innerText = `Marker ${currentMarkerId} Challenge`;
-            document.getElementById('questionText').innerText = qData.question;
-            const optsContainer = document.getElementById('optionsContainer');
-            optsContainer.innerHTML = "";
-
-            let options = [];
-            try {
-                options = typeof qData.options === 'string' ? JSON.parse(qData.options) : qData.options;
-            } catch(e) {
-                options = ["Option A", "Option B", "Option C", "Option D"];
+            if (!teamName) {
+                errorDiv.innerText = "Please enter a valid team name!";
+                return;
             }
 
-            options.forEach((optText, index) => {
-                const btn = document.createElement('button');
-                btn.className = 'option-btn';
-                btn.innerText = `${String.fromCharCode(65 + index)}) ${optText}`;
-                btn.onclick = () => submitAnswer(index === qData.correct_option);
-                optsContainer.appendChild(btn);
-            });
-
-            document.getElementById('triviaModal').style.display = 'block';
-        }
-
-        async function submitAnswer(isCorrect) {
-            document.getElementById('triviaModal').style.display = 'none';
-
-            const { data, error } = await supabaseClient.rpc('process_trivia_answer', {
-                p_team_id: teamId,
-                p_marker_id: currentMarkerId,
-                p_is_correct: isCorrect
-            });
-
-            if (error) {
-                showResultModal("System Error", "Could not record answer. Make sure RPC procedure exists.", false);
-            } else if (data && data.length > 0) {
-                const res = data[0];
-                showResultModal(res.success ? (isCorrect ? "✅ Correct!" : "💡 Nice Try!") : "Notice", res.message, isCorrect);
-                refreshScore();
-            } else {
-                showResultModal(isCorrect ? "✅ Correct!" : "💡 Nice Try!", isCorrect ? "You earned points!" : "No points awarded.", isCorrect);
-                refreshScore();
+            // Save team details & initialize local storage
+            localStorage.setItem('team_name', teamName);
+            if (!localStorage.getItem('team_score')) {
+                localStorage.setItem('team_score', '0');
             }
-        }
-
-        async function refreshScore() {
-            const { data } = await supabaseClient
-                .from('teams')
-                .select('score')
-                .eq('team_id', teamId)
-                .maybeSingle();
-
-            if (data && data.score !== undefined) {
-                document.getElementById('score-display').innerText = `Points: ${data.score}`;
+            if (!localStorage.getItem('scanned_markers')) {
+                localStorage.setItem('scanned_markers', JSON.stringify([]));
             }
+
+            window.location.href = 'index.html';
         }
 
-        function showResultModal(title, message, isSuccess) {
-            document.getElementById('modalTitle').innerText = title;
-            document.getElementById('modalTitle').className = isSuccess ? "success-text" : "error-text";
-            document.getElementById('modalMessage').innerText = message;
-            document.getElementById('resultModal').style.display = "block";
-        }
-
-        function closeModal() {
-            document.getElementById('resultModal').style.display = "none";
-            setTimeout(() => { processingLock = false; }, 1500);
+        // Auto-redirect if team is already registered on this device
+        if (localStorage.getItem('team_name')) {
+            window.location.href = 'index.html';
         }
     </script>
 </body>
